@@ -1,0 +1,68 @@
+name: Deploy to Vercel
+
+# Fire only when a pull request is *merged* into main.
+# `pull_request: closed` also fires on close-without-merge, so the
+# `merged == true` guard on each job filters those out.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  type-check:
+    name: Type Check
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run TypeScript Type Checking
+        run: npm run type-check
+
+  deploy:
+    name: Deploy to Vercel
+    needs: [lint, type-check] # deploy only if both checks succeed
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # Token-only deploy: with no committed .vercel/ folder and no
+      # ORG/PROJECT IDs, Vercel auto-links to a project named after the
+      # repo directory ("alae") on first run, then reuses it after.
+      - name: Deploy to Vercel
+        run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
